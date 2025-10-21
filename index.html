@@ -102,6 +102,27 @@ body {
     cursor: pointer;
 }
 
+.wallet-status {
+    margin-bottom: 16px;
+    font-size: 14px;
+    text-align: center;
+    color: #00c6ff;
+    font-weight: 600;
+}
+
+.connect-wallet-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background-color: #00c6ff;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 16px;
+}
+
 .terms {
     margin-top: 20px;
     font-size: 12px;
@@ -110,79 +131,128 @@ body {
 }
 </style>
 
-<link rel="stylesheet" href="./css/style.css">
 <script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
 
-<script type="module" type="text/javascript">
-    import{
-        bytesToHex,Cip30Wallet,WalletHelper,TxOutput,
-        Assets,bytesToText,hexToBytes,AssetClass,
-        Tx,Address, NetworkParams, Value,MintingPolicyHash,
-        Program,ByteArrayData,ConstrData,NetworkEmulator,PubKey,
-        textToBytes,Datum,ListData,IntData
-    } from "./helios.js";
+<script type="module">
+import{
+    bytesToHex,Cip30Wallet,WalletHelper,TxOutput,
+    Assets,bytesToText,hexToBytes,AssetClass,
+    Tx,Address, NetworkParams, Value,MintingPolicyHash,
+    Program,ByteArrayData,ConstrData,NetworkEmulator,PubKey,
+    textToBytes,Datum,ListData,IntData
+} from "./js/helios.js";
 
-    import{
-        txPrerequisites,init,walletEssentials,txFunc,hlib,hexToTex,shortAddressFunc, 
-        addressFunc, adaFunc, assetFunc,getAssets,sendADA,sendAssets,
-        showWalletData,mint,txDeadLine,baseAddressPKH,submitTx, getAssetsFromValue
-    } from "./coxylib.js";
+import{
+    txPrerequisites,init,walletEssentials,txFunc,hlib,hexToTex,shortAddressFunc, 
+    addressFunc, adaFunc, assetFunc,getAssets,sendADA,sendAssets,
+    showWalletData,mint,txDeadLine,baseAddressPKH,submitTx, getAssetsFromValue
+} from "./js/coxylib.js";
 
-    import{opt,j} from "./jimba.js";
+import{opt,j} from "./js/jimba.js";
 
-    opt._R = 1;
-    opt._O = 1;
-    opt._M = 1;
-    opt._T = 1;
-    opt._Ob = 0;
-    opt._FailsOnly = 0;
-    opt._F = 0;
-    opt._tNo = 1;
+opt._R = 1;
+opt._O = 1;
+opt._M = 1;
+opt._T = 1;
+opt._Ob = 0;
+opt._FailsOnly = 0;
+opt._F = 0;
+opt._tNo = 1;
 
-    const domGetId = (id) => document.getElementById(id);
+const domGetId = id => document.getElementById(id);
 
-    document.getElementById("clearForm").addEventListener('click',()=>{
-        document.getElementById("sendAdaForm").reset();
-    });
+let walletData = null;
 
-    const wallet = await init(j);
-    const walletData = await walletEssentials(wallet,Cip30Wallet,WalletHelper,Value,txPrerequisites.minAda,j);
-    j.log({walletData});
+// Connect Wallet
+domGetId("connectWallet").addEventListener("click", async () => {
+    try {
+        const wallet = await init(j);
+        walletData = await walletEssentials(wallet, Cip30Wallet, WalletHelper, Value, txPrerequisites.minAda, j);
+        j.log({walletData});
 
-    const displayLovelace = await adaFunc(walletData,j);
-    j.log({displayLovelace});
+        // Display balance
+        const displayLovelace = await adaFunc(walletData, j);
+        const displayAda = (displayLovelace / 1_000_000).toLocaleString();
+        domGetId("adaBalance").innerText = "₳ " + displayAda;
+        domGetId("walletStatus").innerText = "Wallet Connected ✅";
 
-    const displayAda = (displayLovelace /1000000).toLocaleString();
-    j.log({displayAda});
+    } catch (err) {
+        console.error("Wallet connection failed:", err);
+        swal("Wallet Error", "Could not connect wallet. Make sure wallet is installed and on Preprod (testnet).", "error");
+        domGetId("walletStatus").innerText = "Wallet Not Connected ❌";
+    }
+});
 
-    document.getElementById("adaBalance").innerHTML = "₳ " +displayAda;
+// Send ADA
+domGetId("sendAdaForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
 
-    document.getElementById("sendAdaForm").addEventListener("submit", async(event)=>{
-        event.preventDefault();
-        const recipientAddress = document.getElementById("recipient").value;
-        const adaAmount = document.getElementById("amount").value;
-        await sendADA(recipientAddress, adaAmount);
-    });
+    if(!walletData){
+        swal("Wallet not connected", "Please connect your wallet first.", "warning");
+        return;
+    }
+
+    const recipientAddress = domGetId("recipient").value.trim();
+    const adaAmountRaw = domGetId("amount").value.trim();
+    const adaAmount = Number(adaAmountRaw);
+
+    if(!recipientAddress){
+        swal("Missing address", "Please enter recipient address.", "warning");
+        return;
+    }
+    if(!adaAmountRaw || isNaN(adaAmount) || adaAmount <= 0){
+        swal("Invalid amount", "Enter a valid amount of ADA.", "warning");
+        return;
+    }
+
+    try {
+        const result = await sendADA(recipientAddress, adaAmount);
+        const txHash = typeof result === "string" ? result : (result?.txHash || result?.hash || "unknown");
+        swal("Success", `₳${adaAmount} sent!\nTx: ${txHash}`, "success");
+        domGetId("sendAdaForm").reset();
+
+        // Update balance
+        const displayLovelace = await adaFunc(walletData, j);
+        const displayAda = (displayLovelace / 1_000_000).toLocaleString();
+        domGetId("adaBalance").innerText = "₳ " + displayAda;
+
+    } catch (err) {
+        console.error(err);
+        swal("Transaction Failed", err?.message || "Error sending ADA", "error");
+    }
+});
+
+// Clear Form
+domGetId("clearForm").addEventListener("click", (e)=>{
+    e.preventDefault();
+    domGetId("sendAdaForm").reset();
+});
 </script>
 </head>
+
 <body>
 <div class="main-container">
     <div class="container">
         <img src="./images/coxygen.png" alt="Coxygen logo">
         <div class="balance-card">
-            <h1 class="league-spartan-title">Stokvel Escrow ADA Transfer</h1>
+            <h1>Stokvel Escrow ADA Transfer</h1>
         </div>
     </div>
+
+    <!-- Connect Wallet -->
+    <button id="connectWallet" class="connect-wallet-btn">Connect Wallet</button>
+    <div class="wallet-status" id="walletStatus">Wallet Not Connected ❌</div>
+
     <form id="sendAdaForm">
         <div class="container">
             <div class="balance-card">
                 <div class="league-spartan-regular">Available ADA Balance:</div>
-                <div class="league-spartan-regular" id="adaBalance"></div>
+                <div class="league-spartan-regular" id="adaBalance">₳ —</div>
             </div>
             <div class="input-group">
                 <label for="amount">Ada:</label>
                 <div class="input-icon-group">
-                    <input type="number" id="amount" placeholder="₳  Enter amount" class="league-spartan-input">
+                    <input type="number" id="amount" placeholder="₳  Enter amount" class="league-spartan-input" step="0.000001" min="0">
                 </div>
             </div>
             <div class="input-group">
@@ -192,8 +262,8 @@ body {
                 </div>
             </div>
             <div class="button-group">
-                <button class="send-button league-spartan-send-button" id="sendADA" type="submit">Send</button>
-                <button class="reset-button league-spartan-reset-button" id="clearForm">Clear</button>
+                <button class="send-button league-spartan-send-button" type="submit">Send</button>
+                <button class="reset-button league-spartan-reset-button" id="clearForm" type="button">Clear</button>
             </div>
             <div class="terms">
                 Coxygen Global@2024 — Stokvel Escrow
@@ -203,4 +273,3 @@ body {
 </div>
 </body>
 </html>
-
