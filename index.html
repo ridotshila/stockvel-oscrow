@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stokvel Escrow — Coxygen Global</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
+
+body {
+    margin: 0;
+    font-family: 'League Spartan', sans-serif;
+    background-color: #0b1a2f;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.main-container {
+    width: 100%;
+    max-width: 700px;
+    padding: 24px;
+    background: linear-gradient(145deg, #0d254d, #071028);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.container img {
+    display: block;
+    margin: 0 auto 16px auto;
+    width: 120px;
+}
+
+.balance-card {
+    background-color: rgba(255,255,255,0.05);
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.balance-card h1 {
+    margin: 0 0 8px 0;
+    font-size: 24px;
+    color: #00c6ff;
+}
+
+.league-spartan-regular {
+    font-weight: 500;
+    font-size: 16px;
+    margin-bottom: 4px;
+}
+
+.input-group {
+    margin-bottom: 12px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.input-icon-group input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    background-color: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 14px;
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.send-button {
+    flex: 1;
+    background: linear-gradient(90deg,#00c6ff,#0072ff);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.reset-button {
+    flex: 1;
+    background-color: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    color: #ddd;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.terms {
+    margin-top: 20px;
+    font-size: 12px;
+    text-align: center;
+    color: #888;
+}
+</style>
+
+<link rel="stylesheet" href="./css/style.css">
+<script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+
+<script type="module" type="text/javascript">
+    import{
+        bytesToHex,Cip30Wallet,WalletHelper,TxOutput,
+        Assets,bytesToText,hexToBytes,AssetClass,
+        Tx,Address, NetworkParams, Value,MintingPolicyHash,
+        Program,ByteArrayData,ConstrData,NetworkEmulator,PubKey,
+        textToBytes,Datum,ListData,IntData
+    } from "./helios.js";
+
+    import{
+        txPrerequisites,init,walletEssentials,txFunc,hlib,hexToTex,shortAddressFunc, 
+        addressFunc, adaFunc, assetFunc,getAssets,sendADA,sendAssets,
+        showWalletData,mint,txDeadLine,baseAddressPKH,submitTx, getAssetsFromValue
+    } from "./coxylib.js";
+
+    import{opt,j} from "./jimba.js";
+
+    opt._R = 1;
+    opt._O = 1;
+    opt._M = 1;
+    opt._T = 1;
+    opt._Ob = 0;
+    opt._FailsOnly = 0;
+    opt._F = 0;
+    opt._tNo = 1;
+
+    const domGetId = (id) => document.getElementById(id);
+
+    document.getElementById("clearForm").addEventListener('click',()=>{
+        document.getElementById("sendAdaForm").reset();
+    });
+
+    const wallet = await init(j);
+    const walletData = await walletEssentials(wallet,Cip30Wallet,WalletHelper,Value,txPrerequisites.minAda,j);
+    j.log({walletData});
+
+    const displayLovelace = await adaFunc(walletData,j);
+    j.log({displayLovelace});
+
+    const displayAda = (displayLovelace /1000000).toLocaleString();
+    j.log({displayAda});
+
+    document.getElementById("adaBalance").innerHTML = "₳ " +displayAda;
+
+    document.getElementById("sendAdaForm").addEventListener("submit", async(event)=>{
+        event.preventDefault();
+        const recipientAddress = document.getElementById("recipient").value;
+        const adaAmount = document.getElementById("amount").value;
+        await sendADA(recipientAddress, adaAmount);
+    });
+</script>
+</head>
+<body>
+<div class="main-container">
+    <div class="container">
+        <img src="./images/coxygen.png" alt="Coxygen logo">
+        <div class="balance-card">
+            <h1 class="league-spartan-title">Stokvel Escrow ADA Transfer</h1>
+        </div>
+    </div>
+    <form id="sendAdaForm">
+        <div class="container">
+            <div class="balance-card">
+                <div class="league-spartan-regular">Available ADA Balance:</div>
+                <div class="league-spartan-regular" id="adaBalance"></div>
+            </div>
+            <div class="input-group">
+                <label for="amount">Ada:</label>
+                <div class="input-icon-group">
+                    <input type="number" id="amount" placeholder="₳  Enter amount" class="league-spartan-input">
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="recipient">Recipient Address:</label>
+                <div class="input-icon-group">
+                    <input type="text" id="recipient" placeholder="Enter recipient address" class="league-spartan-input">
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="send-button league-spartan-send-button" id="sendADA" type="submit">Send</button>
+                <button class="reset-button league-spartan-reset-button" id="clearForm">Clear</button>
+            </div>
+            <div class="terms">
+                Coxygen Global@2024 — Stokvel Escrow
+            </div>
+        </div>
+    </form>
+</div>
+</body>
+</html>
+
