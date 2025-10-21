@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stokvel Escrow — Coxygen Global</title>
+<title>Stokvel Escrow Dashboard — Coxygen Global</title>
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
@@ -13,45 +13,66 @@ body {
     font-family: 'League Spartan', sans-serif;
     background-color: #0b1a2f;
     color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
     min-height: 100vh;
 }
 
 .main-container {
     width: 100%;
-    max-width: 700px;
+    max-width: 900px;
+    margin: 24px auto;
     padding: 24px;
     background: linear-gradient(145deg, #0d254d, #071028);
     border-radius: 16px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
-.container img {
-    display: block;
-    margin: 0 auto 16px auto;
-    width: 120px;
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
 }
 
-.balance-card {
-    background-color: rgba(255,255,255,0.05);
-    padding: 16px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-    text-align: center;
+.header img {
+    width: 100px;
 }
 
-.balance-card h1 {
-    margin: 0 0 8px 0;
-    font-size: 24px;
+.wallet-info {
+    text-align: right;
+}
+
+.wallet-status {
+    font-size: 14px;
+    color: #00c6ff;
+    font-weight: 600;
+}
+
+.connect-wallet-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    background-color: #00c6ff;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+}
+
+.section {
+    margin-bottom: 24px;
+}
+
+.section h2 {
+    margin-bottom: 12px;
+    font-size: 20px;
     color: #00c6ff;
 }
 
-.league-spartan-regular {
-    font-weight: 500;
-    font-size: 16px;
-    margin-bottom: 4px;
+.balance-card, .form-card, .list-card, .history-card {
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
 }
 
 .input-group {
@@ -102,25 +123,19 @@ body {
     cursor: pointer;
 }
 
-.wallet-status {
-    margin-bottom: 16px;
-    font-size: 14px;
-    text-align: center;
-    color: #00c6ff;
-    font-weight: 600;
+.table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.connect-wallet-btn {
-    display: block;
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: none;
-    background-color: #00c6ff;
-    color: #fff;
-    font-weight: 700;
-    cursor: pointer;
-    margin-bottom: 16px;
+.table th, .table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.table th {
+    text-align: left;
+    color: #00c6ff;
 }
 
 .terms {
@@ -128,6 +143,15 @@ body {
     font-size: 12px;
     text-align: center;
     color: #888;
+}
+
+.member-actions button {
+    margin-left: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    border: none;
 }
 </style>
 
@@ -140,15 +164,15 @@ import{
     Tx,Address, NetworkParams, Value,MintingPolicyHash,
     Program,ByteArrayData,ConstrData,NetworkEmulator,PubKey,
     textToBytes,Datum,ListData,IntData
-} from "./js/helios.js";
+} from "./helios.js";
 
 import{
     txPrerequisites,init,walletEssentials,txFunc,hlib,hexToTex,shortAddressFunc, 
     addressFunc, adaFunc, assetFunc,getAssets,sendADA,sendAssets,
     showWalletData,mint,txDeadLine,baseAddressPKH,submitTx, getAssetsFromValue
-} from "./js/coxylib.js";
+} from "./coxylib.js";
 
-import{opt,j} from "./js/jimba.js";
+import{opt,j} from "./jimba.js";
 
 opt._R = 1;
 opt._O = 1;
@@ -163,6 +187,55 @@ const domGetId = id => document.getElementById(id);
 
 let walletData = null;
 
+// Load members and history from localStorage
+let members = JSON.parse(localStorage.getItem("members") || "[]");
+let txHistory = JSON.parse(localStorage.getItem("txHistory") || "[]");
+
+// Render members table
+function renderMembers() {
+    const tbody = domGetId("membersBody");
+    tbody.innerHTML = "";
+    members.forEach((m, i) => {
+        const row = tbody.insertRow(-1);
+        row.insertCell(0).innerText = i + 1;
+        row.insertCell(1).innerText = m.name;
+        row.insertCell(2).innerText = m.address;
+        const actions = row.insertCell(3);
+        actions.classList.add("member-actions");
+        const removeBtn = document.createElement("button");
+        removeBtn.innerText = "Remove";
+        removeBtn.onclick = () => { removeMember(i); };
+        actions.appendChild(removeBtn);
+    });
+}
+
+// Add member
+function addMember(name, address){
+    members.push({name, address});
+    localStorage.setItem("members", JSON.stringify(members));
+    renderMembers();
+}
+
+// Remove member
+function removeMember(index){
+    members.splice(index,1);
+    localStorage.setItem("members", JSON.stringify(members));
+    renderMembers();
+}
+
+// Render transaction history
+function renderHistory(){
+    const tbody = domGetId("txHistory");
+    tbody.innerHTML = "";
+    txHistory.forEach(tx=>{
+        const row = tbody.insertRow(-1);
+        row.insertCell(0).innerText = tx.date;
+        row.insertCell(1).innerText = tx.recipient;
+        row.insertCell(2).innerText = tx.amount;
+        row.insertCell(3).innerText = tx.txHash;
+    });
+}
+
 // Connect Wallet
 domGetId("connectWallet").addEventListener("click", async () => {
     try {
@@ -170,10 +243,9 @@ domGetId("connectWallet").addEventListener("click", async () => {
         walletData = await walletEssentials(wallet, Cip30Wallet, WalletHelper, Value, txPrerequisites.minAda, j);
         j.log({walletData});
 
-        // Display balance
         const displayLovelace = await adaFunc(walletData, j);
         const displayAda = (displayLovelace / 1_000_000).toLocaleString();
-        domGetId("adaBalance").innerText = "₳ " + displayAda;
+        domGetId("escrowBalance").innerText = "₳ " + displayAda;
         domGetId("walletStatus").innerText = "Wallet Connected ✅";
 
     } catch (err) {
@@ -214,7 +286,17 @@ domGetId("sendAdaForm").addEventListener("submit", async (event) => {
         // Update balance
         const displayLovelace = await adaFunc(walletData, j);
         const displayAda = (displayLovelace / 1_000_000).toLocaleString();
-        domGetId("adaBalance").innerText = "₳ " + displayAda;
+        domGetId("escrowBalance").innerText = "₳ " + displayAda;
+
+        // Save to transaction history
+        txHistory.push({
+            date: new Date().toLocaleString(),
+            recipient: recipientAddress,
+            amount: "₳ " + adaAmount,
+            txHash: txHash
+        });
+        localStorage.setItem("txHistory", JSON.stringify(txHistory));
+        renderHistory();
 
     } catch (err) {
         console.error(err);
@@ -227,49 +309,108 @@ domGetId("clearForm").addEventListener("click", (e)=>{
     e.preventDefault();
     domGetId("sendAdaForm").reset();
 });
+
+// Add member form
+domGetId("addMemberForm").addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const name = domGetId("memberName").value.trim();
+    const address = domGetId("memberAddress").value.trim();
+    if(!name || !address){
+        swal("Missing info", "Enter both name and address", "warning");
+        return;
+    }
+    addMember(name, address);
+    domGetId("memberName").value = "";
+    domGetId("memberAddress").value = "";
+});
+
+// Initial render
+renderMembers();
+renderHistory();
 </script>
 </head>
 
 <body>
 <div class="main-container">
-    <div class="container">
+    <div class="header">
         <img src="./images/coxygen.png" alt="Coxygen logo">
-        <div class="balance-card">
-            <h1>Stokvel Escrow ADA Transfer</h1>
+        <div class="wallet-info">
+            <div class="wallet-status" id="walletStatus">Wallet Not Connected ❌</div>
+            <button id="connectWallet" class="connect-wallet-btn">Connect Wallet</button>
         </div>
     </div>
 
-    <!-- Connect Wallet -->
-    <button id="connectWallet" class="connect-wallet-btn">Connect Wallet</button>
-    <div class="wallet-status" id="walletStatus">Wallet Not Connected ❌</div>
+    <!-- Escrow Pool Balance -->
+    <div class="section balance-card">
+        <h2>Escrow Pool Balance</h2>
+        <div id="escrowBalance">₳ —</div>
+    </div>
 
-    <form id="sendAdaForm">
-        <div class="container">
-            <div class="balance-card">
-                <div class="league-spartan-regular">Available ADA Balance:</div>
-                <div class="league-spartan-regular" id="adaBalance">₳ —</div>
-            </div>
+    <!-- Transfer ADA -->
+    <div class="section form-card">
+        <h2>Send ADA</h2>
+        <form id="sendAdaForm">
             <div class="input-group">
-                <label for="amount">Ada:</label>
-                <div class="input-icon-group">
-                    <input type="number" id="amount" placeholder="₳  Enter amount" class="league-spartan-input" step="0.000001" min="0">
-                </div>
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" placeholder="₳ Enter amount" step="0.000001" min="0">
             </div>
             <div class="input-group">
                 <label for="recipient">Recipient Address:</label>
-                <div class="input-icon-group">
-                    <input type="text" id="recipient" placeholder="Enter recipient address" class="league-spartan-input">
-                </div>
+                <input type="text" id="recipient" placeholder="Enter recipient address">
             </div>
             <div class="button-group">
-                <button class="send-button league-spartan-send-button" type="submit">Send</button>
-                <button class="reset-button league-spartan-reset-button" id="clearForm" type="button">Clear</button>
+                <button class="send-button" type="submit">Send</button>
+                <button class="reset-button" id="clearForm" type="button">Clear</button>
             </div>
-            <div class="terms">
-                Coxygen Global@2024 — Stokvel Escrow
+        </form>
+    </div>
+
+    <!-- Members List -->
+    <div class="section list-card">
+        <h2>Stokvel Members</h2>
+        <form id="addMemberForm">
+            <div class="input-group">
+                <input type="text" id="memberName" placeholder="Member Name">
             </div>
-        </div>
-    </form>
+            <div class="input-group">
+                <input type="text" id="memberAddress" placeholder="Member Address">
+            </div>
+            <div class="button-group">
+                <button type="submit" class="send-button">Add Member</button>
+            </div>
+        </form>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Member Name</th>
+                    <th>Address</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="membersBody">
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Transaction History -->
+    <div class="section history-card">
+        <h2>Transaction History</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date/Time</th>
+                    <th>Recipient</th>
+                    <th>Amount</th>
+                    <th>Tx Hash</th>
+                </tr>
+            </thead>
+            <tbody id="txHistory">
+            </tbody>
+        </table>
+    </div>
+
+    <div class="terms">Coxygen Global@2024 By Mosa</div>
 </div>
 </body>
 </html>
